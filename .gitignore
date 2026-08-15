@@ -4,7 +4,12 @@ package-lock.json
 __pycache__/
 *.pyc
 
-# 临时/敏感文件
+# PyInstaller 构建产物
+build/
+*.spec
+
+# 测试临时产物
+smoke_plot.png
 _net_test.py
 .DS_Store
 Thumbs.db

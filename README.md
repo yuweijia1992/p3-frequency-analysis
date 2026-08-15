@@ -1,43 +1,63 @@
-# P-Ⅲ型频率曲线适线分析（网页版）
+# P-Ⅲ型频率曲线适线分析（水文频率计算）
 
-轻量网页版水文频率计算工具：**粘贴数据 → 适线 → 绘图**，完全离线、无任何外部依赖。
+水文学专业的皮尔逊Ⅲ型（Pearson Type III）频率曲线适线分析工具，
+包含 **网页版** 与 **Windows 桌面版** 两个版本，算法完全一致、结果可互相印证。
 
-## 使用
+- 输入多年水文资料（年最大洪峰流量、年降水量、年径流量等），自动按矩法
+  估计均值、变差系数 Cv、偏态系数 Cs；
+- 在海森机率格纸上绘制经验点（P=m/(n+1)）与 P-Ⅲ 理论频率曲线；
+- 支持人工适线（实时调节参数）与优化适线（加权最小二乘）；
+- 输出设计成果表（频率—重现期—离均系数Φ—设计值）与拟合检验指标。
 
-- 直接双击打开 **`P3频率曲线网页版.html`**（单文件，Chrome/Edge/Firefox 均可，离线可用）；
-- 把多年数据粘贴到左侧文本框（每行一个年值，或“年份 数值”两列），按 `F5` 或点击【计算】；
-- 拖动 **Cv / Cs / 均值** 滑杆（或输入精确值）人工适线，曲线实时更新；
-- 点击【优化适线（最小二乘）】自动求最优参数（勾选"均值固定"则只调 Cv、Cs）；
-- 左侧给出设计成果表（频率—重现期—离均系数Φ—设计值）与拟合检验指标；
-- 鼠标悬停经验点可查看年份/实测值/理论值；右上角可下载 PNG 图片与 CSV 成果表。
+## 目录结构
 
-## 文件结构
-
-| 文件 | 说明 |
-| --- | --- |
-| `P3频率曲线网页版.html` | **交付文件**（单文件，内联全部算法与界面） |
-| `p3core.js` | 核心算法（纯 JS：不完全伽马函数及其逆、离均系数、矩法、优化适线） |
-| `p3.html` | 界面源文件（引用 p3core.js） |
-| `build_single.py` | 构建脚本：把 p3core.js 内联进 p3.html 生成单文件版 |
-| `gen_vectors.py` | 用已验证的 Python 版（P3FrequencyTool 目录）生成测试向量 |
-| `test_p3core.js` | 核心算法 Node 交叉验证（与 Python 版比对，容差 1e-8） |
-| `test_ui.js` | 界面冒烟测试（jsdom，需 `npm install jsdom`） |
-| `test_geometry.js` | 绘图几何测试（记录型 canvas 桩检查坐标与刻度） |
-
-## 开发与测试
-
-```bat
-python build_single.py        :: 修改 p3core.js / p3.html 后重新生成单文件版
-npm install jsdom             :: 安装 UI 测试依赖（仅测试需要）
-node test_p3core.js           :: 算法测试
-node test_ui.js               :: UI 测试
-node test_geometry.js         :: 绘图几何测试
+```
+├── P3频率曲线网页版.html    ← 网页版（单文件，双击即用，完全离线）
+├── p3core.js / p3.html       ← 网页版核心算法 / 界面源码
+├── build_single.py           ← 网页版单文件构建脚本
+├── test_*.js / gen_vectors.py ← 网页版测试与验证
+├── desktop/                  ← Windows 桌面版（Python + tkinter + matplotlib）
+│   ├── dist/P3频率计算软件.exe  ← 免安装可执行程序（38MB）
+│   ├── app.py / p3core.py      ← 桌面版主程序 / 核心算法
+│   ├── build_exe.bat           ← 一键打包 exe 脚本
+│   └── ...
+└── README.md
 ```
 
-## 数值精度
+## 使用方法
 
-与桌面版（Python）同一套算法实现，离均系数 Φ 经与 SciPy 交叉验证，
-两种语言实现间最大差异 < 1e-8（深尾处迭代终止噪声），满足水文计算要求。
+**网页版**：双击 `P3频率曲线网页版.html` → 粘贴数据 → 按 F5 计算 → 拖动滑杆适线。
+
+**桌面版**：运行 `desktop/dist/P3频率计算软件.exe`（免安装）；
+或 `pip install -r desktop/requirements.txt` 后 `python desktop/app.py` 从源码运行。
+
+详见各版本目录内 README 与《使用说明.txt》。
+
+## 计算方法
+
+- 经验频率：P = m/(n+1) × 100%（数学期望公式）
+- 理论曲线：x_p = x̄(1 + Cv·Φ_p)，离均系数 Φ_p 由 P-Ⅲ 分布与不完全伽马函数
+  的关系 Q(4/Cs², 2Φ/Cs + 4/Cs²) = P 反解（α=4/Cs²，β=2/(x̄·Cv·Cs)）
+- 矩法初值：Cv=√(Σ(Ki-1)²/n)，Cs=Σ(Ki-1)³/(n·Cv³)
+- 优化适线：Cs 网格搜索 + 加权最小二乘（均值可固定为样本均值）
+
+数值实现（Python 与 JavaScript 双语言）经与 SciPy 交叉验证，
+精度达 1e-13 量级，不依赖任何外部计算服务。
+
+## 测试
+
+```bat
+:: 网页版（需 Node.js）
+npm install jsdom
+node test_p3core.js      :: 核心算法交叉验证（与 Python 版比对）
+node test_ui.js          :: 界面冒烟测试
+node test_geometry.js    :: 绘图几何测试
+
+:: 桌面版（需 Python）
+python desktop/test_p3core.py      :: 核心模块单元测试
+python desktop/test_vs_scipy.py    :: 与 SciPy 交叉验证
+python desktop/smoke_test.py       :: GUI 冒烟测试
+```
 
 ## 版本
 
