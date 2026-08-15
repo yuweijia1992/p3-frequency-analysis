@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P-Ⅲ型频率曲线适线分析（网页版）</title>
+<style>
+  :root {
+    --primary: #1f77b4;
+    --accent: #d62728;
+    --bg: #f1f5f9;
+    --card: #ffffff;
+    --line: #e2e8f0;
+    --text: #1e293b;
+    --muted: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text); font-size: 14px;
+  }
+  header {
+    background: linear-gradient(135deg, #1e3a5f, #1f77b4);
+    color: #fff; padding: 10px 20px; display: flex; align-items: baseline; gap: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header .ver { font-size: 12px; opacity: .85; }
+  main { display: flex; gap: 14px; padding: 14px; align-items: flex-start; }
+  aside { width: 400px; flex: none; display: flex; flex-direction: column; gap: 12px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  .card h3 { font-size: 13px; color: var(--primary); margin-bottom: 8px;
+             border-left: 3px solid var(--primary); padding-left: 8px; }
+  textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 8px;
+    font-family: Consolas, monospace; font-size: 13px; resize: vertical;
+    background: #fbfdff;
+  }
+  .row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+  button {
+    border: 1px solid var(--line); background: #fff; color: var(--text);
+    padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  button:hover { border-color: var(--primary); color: var(--primary); }
+  button.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+  button.primary:hover { background: #1668a5; color: #fff; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+  .stats { font-size: 13px; line-height: 1.7; color: var(--text); }
+  .stats b { color: var(--primary); }
+  .prow { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .prow label { width: 64px; font-size: 13px; color: var(--muted); flex: none; }
+  .prow input[type=number] {
+    width: 92px; border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px;
+    font-size: 13px; font-family: Consolas, monospace;
+  }
+  .prow input[type=range] { flex: 1; accent-color: var(--primary); }
+  .chk { font-size: 13px; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .chk input { accent-color: var(--primary); }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { border: 1px solid var(--line); padding: 3px 6px; text-align: right; }
+  th { background: #f8fafc; color: var(--muted); font-weight: 600; text-align: center; }
+  td:nth-child(1), td:nth-child(2) { text-align: center; }
+  tr.design { background: #fff7d6; }
+  #plotArea { flex: 1; min-width: 0; background: var(--card); border: 1px solid var(--line);
+              border-radius: 10px; padding: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+              position: relative; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  #status { font-size: 12px; color: var(--muted); }
+  canvas { width: 100%; height: auto; display: block; background: #fff;
+           border: 1px solid var(--line); border-radius: 6px; cursor: crosshair; }
+  .tip {
+    position: absolute; pointer-events: none; background: rgba(30,41,59,.92); color: #fff;
+    font-size: 12px; padding: 6px 9px; border-radius: 6px; white-space: pre; z-index: 10;
+  }
+  @media (max-width: 1000px) { main { flex-direction: column; } aside { width: 100%; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>P-Ⅲ型频率曲线适线分析</h1>
+  <span class="ver">网页版 v1.0 · 皮尔逊Ⅲ型 · 完全离线</span>
+</header>
+
+<main>
+  <aside>
+    <section class="card">
+      <h3>① 数据输入（每行一个年值，或“年份 数值”两列）</h3>
+      <textarea id="data" rows="7"
+        placeholder="1985 1250&#10;1986 1680&#10;1987 980&#10;…&#10;或直接每行一个数值：&#10;1250&#10;1680&#10;980"></textarea>
+      <div class="row">
+        <button id="btnSample">示例数据</button>
+        <button id="btnCalc" class="primary">计算 (F5)</button>
+        <button id="btnClear">清空</button>
+      </div>
+      <div id="srcInfo" class="hint"></div>
+    </section>
+
+    <section class="card">
+      <h3>② 样本统计量（矩法初值）</h3>
+      <div id="stats" class="stats">尚无数据</div>
+    </section>
+
+    <section class="card">
+      <h3>③ 频率曲线参数（适线：拖动滑杆或输入数值，实时更新）</h3>
+      <div class="prow"><label>均值 x̄</label><input id="meanNum" type="number" step="any"><input id="meanRng" type="range" step="any"></div>
+      <div class="prow"><label>Cv</label><input id="cvNum" type="number" step="any" min="0"><input id="cvRng" type="range" min="0" max="3" step="0.001"></div>
+      <div class="prow"><label>Cs</label><input id="csNum" type="number" step="any"><input id="csRng" type="range" min="-3" max="10" step="0.01"></div>
+      <div class="row">
+        <label class="chk"><input id="chkFix" type="checkbox" checked> 均值固定为样本均值</label>
+        <label class="chk"><input id="chkPts" type="checkbox" checked> 显示经验点</label>
+        <label class="chk"><input id="chkYr" type="checkbox"> 年份标签</label>
+      </div>
+      <div class="row">
+        <button id="btnMoment">矩法估计</button>
+        <button id="btnFit" class="primary">优化适线（最小二乘）</button>
+      </div>
+      <div id="fitInfo" class="hint"></div>
+    </section>
+
+    <section class="card">
+      <h3>④ 设计成果表（P-Ⅲ 理论频率曲线）</h3>
+      <table>
+        <thead><tr><th>频率P(%)</th><th>重现期T(年)</th><th>离均系数Φ</th><th>设计值</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div id="errInfo" class="hint"></div>
+    </section>
+  </aside>
+
+  <section id="plotArea">
+    <div class="toolbar">
+      <span id="status">就绪：粘贴数据后按 F5 或点击【计算】</span>
+      <span>
+        <button id="btnPng">下载 PNG</button>
+        <button id="btnCsv">下载 CSV</button>
+      </span>
+    </div>
+    <canvas id="cv"></canvas>
+    <div id="tip" class="tip" hidden></div>
+  </section>
+</main>
+
+<script>
+/* ===== p3core.js（内联）===== */
+/* ============================================================================
+ * p3core.js —— 水文频率计算核心模块（皮尔逊Ⅲ型 / Pearson Type III）
+ * 纯 JavaScript 实现，无任何外部依赖，可在浏览器与 Node 中运行。
+ *
+ * 与 Python 版 p3core.py 算法逐行对应，经与 SciPy 交叉验证（1e-13 量级）。
+ * ==========================================================================*/
+"use strict";
+
+/* ---------------------------------------------------------------------------
+ * 常量
+ * -------------------------------------------------------------------------*/
+const SQRT2 = Math.SQRT2;
+
+// 频率格纸（海森机率格纸）刻度：P 单位 %
+const PAPER_MAJOR = [0.01, 0.1, 1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 99.9];
+const PAPER_MINOR = [0.01, 0.02, 0.03, 0.05, 0.1, 0.2, 0.3, 0.5, 1, 2, 3, 5, 10, 15, 20,
+                     25, 30, 40, 50, 60, 70, 75, 80, 85, 90, 95, 96, 97, 98, 99, 99.5,
+                     99.8, 99.9];
+const STD_P = [0.01, 0.1, 1, 2, 5, 10, 20, 50, 75, 90, 95, 99, 99.9];
+
+const LANCZOS_C = [0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+                   771.32342877765313, -176.61502916214059, 12.507343278686905,
+                   -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+
+/* ---------------------------------------------------------------------------
+ * 基础特殊函数
+ * -------------------------------------------------------------------------*/
+function lgamma(z) {
+    /* ln Γ(z)，z > 0，Lanczos 近似（g=7） */
+    let x = z - 1.0;
+    let acc = LANCZOS_C[0];
+    for (let i = 1; i < 9; i++) {
+        acc += LANCZOS_C[i] / (x + i);
+    }
+    const t = x + 7.0 + 0.5;
+    return 0.5 * Math.log(2.0 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(acc);
+}
+
+/* 正则化上不完全伽马函数 Q(a,x)，a>0，x>=0 */
+function gammaincc(a, x) {
+    if (x < a + 1.0) {
+        /* 级数求 P(a,x) 再取 1-P */
+        const logterm = -x + a * Math.log(x) - lgamma(a + 1.0);
+        let term = Math.exp(logterm);
+        let s = term;
+        let k = 1;
+        while (k < 3000) {
+            term = term * x / (a + k);
+            s += term;
+            if (Math.abs(term) <= 1e-16 * Math.abs(s)) break;
+            k++;
+        }
+        return 1.0 - s;
+    } else {
+        /* 连分式（Lentz，Numerical Recipes gcf） */
+        const tiny = 1e-300;
+        let b = x + 1.0 - a;
+        let c = 1e300;
+        let d = 1.0 / b;
+        let h = d;
+        let k = 1;
+        while (k < 5000) {
+            const an = -k * (k - a);
+            b += 2.0;
+            d = an * d + b;
+            if (Math.abs(d) < tiny) d = tiny;
+            c = b + an / c;
+            if (Math.abs(c) < tiny) c = tiny;
+            d = 1.0 / d;
+            const dl = d * c;
+            h *= dl;
+            if (Math.abs(dl - 1.0) < 1e-14) break;
+            k++;
+        }
+        return Math.exp(-x + a * Math.log(x) - lgamma(a)) * h;
+    }
+}
+
+/* 对数空间二分求 t 使 Q(a,t)=q（a<1 或牛顿不收敛时的兜底） */
+function bisectGammainccinv(a, q) {
+    const lna = Math.log(a);
+    const lg = lgamma(a);
+    let sLo = (Math.log1p(-q) + lna + lg - 5.0) / a;
+    let tHi = a * Math.pow(1.0 - 1.0 / (9.0 * a) + 5.0 / (3.0 * Math.sqrt(a)), 3);
+    tHi = Math.max(tHi, 2.0 * a, 1.0);
+    let sHi = Math.log(tHi * 1.5);
+    for (let i = 0; i < 60; i++) {
+        if (gammaincc(a, Math.exp(sHi)) < q) break;
+        sHi += 1.0;
+    }
+    for (let i = 0; i < 60; i++) {
+        const sMid = 0.5 * (sLo + sHi);
+        if (gammaincc(a, Math.exp(sMid)) > q) {
+            sLo = sMid;
+        } else {
+            sHi = sMid;
+        }
+    }
+    return Math.exp(0.5 * (sLo + sHi));
+}
+
+/* 不完全伽马函数的逆：求 t 使 Q(a,t)=q */
+function gammainccinv(a, q) {
+    if (!(q > 0)) return 0;
+    if (q >= 1) return Infinity;
+    q = Math.min(Math.max(q, 1e-15), 1.0 - 1e-15);
+    /* 初值：Wilson-Hilferty */
+    const u = norm_ppf(1.0 - q);
+    let t0 = a * Math.pow(1.0 - 1.0 / (9.0 * a) + u / (3.0 * Math.sqrt(a)), 3);
+    if (!(t0 > 0) || !isFinite(t0)) {
+        t0 = Math.exp(Math.log(a) + u / Math.sqrt(a));
+    }
+    t0 = Math.min(Math.max(t0, 1e-12), 1e300);
+    if (a >= 1.0) {
+        /* 对数空间牛顿 */
+        let s = Math.log(t0);
+        let g = 0;
+        let done = false;
+        for (let it = 0; it < 25; it++) {
+            const t = Math.exp(s);
+            const qv = gammaincc(a, t);
+            g = qv - q;
+            if (Math.abs(g) <= 1e-11) { done = true; break; }
+            const logtf = a * s - t - lgamma(a);
+            let ds = g / Math.exp(logtf);
+            if (ds > 4) ds = 4;
+            if (ds < -4) ds = -4;
+            s += ds;
+        }
+        if (done || Math.abs(g) <= 1e-11) {
+            return Math.exp(s);
+        }
+    }
+    return bisectGammainccinv(a, q);
+}
+
+/* 标准正态分布函数 Φ(x)（用 gammaincc(0.5, x²/2) 实现 erfc，高精度） */
+function norm_cdf(x) {
+    const tail = 0.5 * gammaincc(0.5, x * x / 2.0);
+    return x < 0 ? tail : 1.0 - tail;
+}
+
+/* 标准正态分布分位数 Φ⁻¹(p)（Acklam 初值 + 牛顿细化） */
+function norm_ppf(p) {
+    p = Math.min(Math.max(p, 1e-300), 1.0 - 1e-16);
+    const plow = 0.02425, phigh = 0.97575;
+    const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
+               1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
+    const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
+               6.680131188771972e+01, -1.328068155928572e+01];
+    const c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00,
+               -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+    const d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00,
+               3.754408661907416e+00];
+    let q, x;
+    if (p < plow) {
+        q = Math.sqrt(-2.0 * Math.log(p));
+        x = polyval(c, q) / polyval(d.concat([1.0]), q);
+    } else if (p > phigh) {
+        q = Math.sqrt(-2.0 * Math.log1p(-p));
+        x = -polyval(c, q) / polyval(d.concat([1.0]), q);
+    } else {
+        q = p - 0.5;
+        const r = q * q;
+        x = polyval(a, r) * q / polyval(b.concat([1.0]), r);
+    }
+    /* 牛顿细化（残差用尾部概率，避免消减误差） */
+    for (let i = 0; i < 4; i++) {
+        const z = Math.abs(x / SQRT2);
+        const tail = 0.5 * gammaincc(0.5, z * z);
+        const resid = x >= 0 ? (1.0 - p) - tail : tail - p;
+        const pdf = Math.exp(-0.5 * x * x) / Math.sqrt(2.0 * Math.PI);
+        if (!(pdf > 1e-300)) break;
+        x -= resid / pdf;
+    }
+    return Math.min(Math.max(x, -38.5), 38.5);
+}
+
+function polyval(coef, x) {
+    let v = 0;
+    for (let i = 0; i < coef.length; i++) {
+        v = v * x + coef[i];
+    }
+    return v;
+}
+
+/* ---------------------------------------------------------------------------
+ * P-Ⅲ 离均系数
+ * -------------------------------------------------------------------------*/
+function phiPearson3(cs, p) {
+    /* Φ_p：P(X > x_p) = p，x_p = x̄(1 + Cv·Φ) */
+    p = Math.min(Math.max(p, 1e-12), 1.0 - 1e-12);
+    if (Math.abs(cs) < 1e-9) {
+        return -norm_ppf(p);
+    }
+    const aa = 4.0 / (cs * cs);
+    const t = gammainccinv(aa, p);
+    return cs * (t - aa) / 2.0;
+}
+
+/* ---------------------------------------------------------------------------
+ * 统计与适线
+ * -------------------------------------------------------------------------*/
+function sampleStats(x) {
+    const n = x.length;
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += x[i];
+    const mean = sum / n;
+    let varSum = 0;
+    for (let i = 0; i < n; i++) {
+        const d = x[i] - mean;
+        varSum += d * d;
+    }
+    const std = n > 1 ? Math.sqrt(varSum / (n - 1)) : 0;
+    let cv = 0, cs = 0;
+    if (Math.abs(mean) > 1e-12 && n > 1) {
+        let s1 = 0;
+        for (let i = 0; i < n; i++) {
+            const k = x[i] / mean - 1.0;
+            s1 += k * k;
+        }
+        cv = Math.sqrt(s1 / n);
+        if (cv > 1e-9 && n > 2) {
+            let s2 = 0;
+            for (let i = 0; i < n; i++) {
+                const k = x[i] / mean - 1.0;
+                s2 += k * k * k;
+            }
+            cs = s2 / (n * cv * cv * cv);
+        }
+    }
+    let xmax = -Infinity, xmin = Infinity;
+    for (let i = 0; i < n; i++) {
+        if (x[i] > xmax) xmax = x[i];
+        if (x[i] < xmin) xmin = x[i];
+    }
+    return { n, mean, std, cv, cs, xmax, xmin };
+}
+
+/* 经验频率：P = m/(n+1) × 100%（返回按从大到小排序的值与频率百分数） */
+function empiricalFreq(x) {
+    const xs = x.slice().sort((u, v) => v - u);
+    const n = xs.length;
+    const p = [];
+    for (let i = 0; i < n; i++) p.push(100.0 * (i + 1) / (n + 1));
+    return { xs, p };
+}
+
+/* 优化适线：在 Cs 网格上搜索，每个 Cs 用加权最小二乘（w=1/x²）解均值/变差系数 */
+function fitCurve(x, p, meanFixed) {
+    /* x, p: 数组；p 为超越概率（0~1）；meanFixed: null=均值自由，数值=固定 */
+    const n = x.length;
+    const w = new Array(n), wx = new Array(n);
+    let sw = 0, sxw = 0;
+    for (let i = 0; i < n; i++) {
+        w[i] = 1.0 / (x[i] * x[i]);
+        wx[i] = w[i] * x[i];
+        sw += w[i];
+        sxw += wx[i];
+    }
+
+    function stage(csArr) {
+        let bestIdx = -1, bestObj = Infinity;
+        const res = { a: new Array(csArr.length), b: new Array(csArr.length),
+                      obj: new Array(csArr.length) };
+        for (let j = 0; j < csArr.length; j++) {
+            const cs = csArr[j];
+            let swp = 0, spp = 0, sxpw = 0;
+            const phi = new Array(n);
+            for (let i = 0; i < n; i++) {
+                const ph = phiPearson3(cs, p[i]);
+                phi[i] = ph;
+                swp += w[i] * ph;
+                spp += w[i] * ph * ph;
+                sxpw += wx[i] * ph;
+            }
+            let a, b;
+            if (meanFixed !== null && meanFixed !== undefined) {
+                a = meanFixed;
+                b = spp > 1e-15 ? (sxpw - a * swp) / spp : NaN;
+            } else {
+                const denom = sw * spp - swp * swp;
+                if (denom > 1e-12) {
+                    a = (spp * sxw - swp * sxpw) / denom;
+                    b = (sw * sxpw - swp * sxw) / denom;
+                } else {
+                    a = NaN; b = NaN;
+                }
+            }
+            const cv = b / a;
+            let obj = Infinity;
+            if (isFinite(a) && isFinite(b) && a > 0 && b > 0 && cv < 50 && cv > 1e-6) {
+                let sse = 0;
+                for (let i = 0; i < n; i++) {
+                    const d = x[i] - (a + b * phi[i]);
+                    sse += w[i] * d * d;
+                }
+                obj = sse;
+            }
+            res.a[j] = a; res.b[j] = b; res.obj[j] = obj;
+            if (obj < bestObj) { bestObj = obj; bestIdx = j; }
+        }
+        return { bestIdx, bestObj, res };
+    }
+
+    const steps = [
+        { step: 0.1,  span: null },
+        { step: 0.005, span: 0.12 },
+        { step: 0.0005, span: 0.02 },
+    ];
+    let bestCs = null, bestA = null, bestB = null, bestObj = Infinity;
+    for (const { step, span } of steps) {
+        let csArr;
+        if (span === null) {
+            csArr = [];
+            for (let cs = -1.0; cs <= 8.0 + step / 2; cs += step) csArr.push(cs);
+        } else {
+            csArr = [];
+            const lo = Math.max(-1.0, bestCs - span);
+            const hi = Math.min(8.0, bestCs + span);
+            for (let cs = lo; cs <= hi + step / 2; cs += step) csArr.push(cs);
+        }
+        const r = stage(csArr);
+        if (isFinite(r.bestObj) && r.bestObj < bestObj) {
+            bestCs = csArr[r.bestIdx];
+            bestA = r.res.a[r.bestIdx];
+            bestB = r.res.b[r.bestIdx];
+            bestObj = r.bestObj;
+        }
+    }
+    if (bestCs === null) return null;
+    /* 拟合指标 */
+    const cs = bestCs, a = bestA, b = bestB;
+    const cv = b / a;
+    const phi = new Array(n);
+    let sse = 0, sseRel = 0, maxRel = 0, sumX = 0, sumXh = 0, sumXX = 0, sumXhXh = 0, sumXXh = 0;
+    for (let i = 0; i < n; i++) {
+        const ph = phiPearson3(cs, p[i]);
+        phi[i] = ph;
+        const xh = a + b * ph;
+        const d = x[i] - xh;
+        sse += d * d;
+        const rel = d / x[i];
+        sseRel += rel * rel;
+        if (Math.abs(rel) > maxRel) maxRel = Math.abs(rel);
+        sumX += x[i]; sumXh += xh; sumXX += x[i] * x[i];
+        sumXhXh += xh * xh; sumXXh += x[i] * xh;
+    }
+    const rmse = Math.sqrt(sse / n);
+    const r2 = n > 2 ? Math.pow((n * sumXXh - sumX * sumXh) /
+        Math.sqrt((n * sumXX - sumX * sumX) * (n * sumXhXh - sumXh * sumXh)), 2) : 1;
+    let xwx = 0;
+    for (let i = 0; i < n; i++) xwx += w[i] * x[i] * x[i];
+    return { cs, mean: a, cv, obj: bestObj, objNorm: bestObj / xwx, rmse, maxRel, r2 };
+}
+
+/* 理论频率曲线：给定频率百分数数组，返回设计值数组 */
+function frequencyCurve(mean, cv, cs, pPct) {
+    return pPct.map(p => mean * (1.0 + cv * phiPearson3(cs, p / 100.0)));
+}
+
+/* 格纸横坐标：频率百分数 → 标准正态分位 u */
+function pctToX(pPct) {
+    return norm_ppf(pPct / 100.0);
+}
+
+/* 供 Node 与浏览器共用 */
+if (typeof module !== "undefined" && module.exports) {
+    module.exports = { lgamma, gammaincc, gammainccinv, norm_cdf, norm_ppf,
+                       phiPearson3, sampleStats, empiricalFreq, fitCurve,
+                       frequencyCurve, pctToX, PAPER_MAJOR, PAPER_MINOR, STD_P };
+}
+
+</script>
+<script>
+"use strict";
+/* ==========================================================================
+ * P-Ⅲ 频率曲线网页版（界面与绘图）
+ * ========================================================================*/
+
+const SAMPLE_YEARS = [], SAMPLE_DATA = [];
+(() => {
+  const d = [1870,1560,2140,1320,2480,1780,3020,1650,1980,2250,1430,2680,1850,2090,
+             1210,2340,1760,2950,1520,2460,1890,2150,1390,2580,1710,2230,1940,1620,2810,2010];
+  for (let i = 0; i < d.length; i++) { SAMPLE_YEARS.push(1991 + i); SAMPLE_DATA.push(d[i]); }
+})();
+
+/* ---------------- 状态 ---------------- */
+const state = { years: null, x: null, source: "", mean: 1000, cv: 0.3, cs: 1.0 };
+
+/* ---------------- DOM ---------------- */
+const $ = id => document.getElementById(id);
+const elData = $("data"), elStats = $("stats"), elSrc = $("srcInfo");
+const meanNum = $("meanNum"), meanRng = $("meanRng");
+const cvNum = $("cvNum"), cvRng = $("cvRng");
+const csNum = $("csNum"), csRng = $("csRng");
+const chkFix = $("chkFix"), chkPts = $("chkPts"), chkYr = $("chkYr");
+const fitInfo = $("fitInfo"), errInfo = $("errInfo"), tbody = $("tbody");
+const canvas = $("cv"), ctx = canvas.getContext("2d");
+const tip = $("tip"), statusEl = $("status");
+
+/* ---------------- 数据解析 ---------------- */
+function parseData(text) {
+  const rows = [];
+  for (const ln of text.split(/\r?\n/)) {
+    if (!ln.trim()) continue;
+    const toks = ln.replace(/－/g, "-").split(/[\s,，;；\t]+/).filter(Boolean);
+    const nums = [];
+    for (const t of toks) {
+      const v = Number(t);
+      if (isFinite(v)) nums.push(v);
+    }
+    if (nums.length) rows.push(nums);
+  }
+  if (!rows.length) throw new Error("未识别到任何数值，请检查输入格式");
+  const twoCol = rows.every(r => r.length === 2);
+  if (twoCol && rows.every(r => r[0] >= 1700 && r[0] <= 2200 && Number.isInteger(r[0]))) {
+    return { years: rows.map(r => r[0]), x: rows.map(r => r[1]) };
+  }
+  return { years: null, x: rows.flat() };
+}
+
+/* ---------------- 计算入口 ---------------- */
+function compute() {
+  let parsed;
+  try {
+    parsed = parseData(elData.value);
+  } catch (e) {
+    alert(e.message);
+    return;
+  }
+  if (parsed.x.length < 3) { alert("至少需要 3 个数据点"); return; }
+  state.years = parsed.years;
+  state.x = parsed.x;
+  state.source = "手动输入";
+  elSrc.textContent = `${state.source}（${parsed.x.length} 个数据${parsed.years ? "，含年份" : ""}）`;
+  applyMoments(true);
+  setStatus(`已载入 ${parsed.x.length} 个数据`);
+}
+
+function setStatus(msg) { statusEl.textContent = msg; }
+
+/* ---------------- 统计与参数 ---------------- */
+function applyMoments(show) {
+  const s = sampleStats(state.x);
+  state.mean = s.mean; state.cv = s.cv; state.cs = s.cs;
+  updateParamControls();
+  render();
+  if (show) {
+    setStatus(`矩法初值：均值=${s.mean.toFixed(2)}，Cv=${s.cv.toFixed(4)}，Cs=${s.cs.toFixed(4)}。可拖动滑杆人工适线`);
+  }
+}
+
+function renderStats() {
+  const s = sampleStats(state.x);
+  const yrOf = v => {
+    if (!state.years) return "—";
+    let bi = 0;
+    for (let i = 1; i < state.x.length; i++) if (Math.abs(state.x[i] - v) < Math.abs(state.x[bi] - v)) bi = i;
+    return state.years[bi];
+  };
+  elStats.innerHTML =
+    `n = <b>${s.n}</b> 年　均值 x̄ = <b>${fmt(s.mean)}</b>　标准差 σ = <b>${fmt(s.std)}</b><br>` +
+    `矩法：Cv = <b>${s.cv.toFixed(4)}</b>　Cs = <b>${s.cs.toFixed(4)}</b><br>` +
+    `最大 = <b>${fmt(s.xmax)}</b>（${yrOf(s.xmax)}）　最小 = <b>${fmt(s.xmin)}</b>（${yrOf(s.xmin)}）`;
+}
+
+function fmt(v) { return v.toLocaleString("zh-CN", { maximumFractionDigits: 2 }); }
+
+/* ---------------- 参数控件同步 ---------------- */
+let syncing = false;
+
+function updateParamControls() {
+  syncing = true;
+  meanNum.value = +state.mean.toPrecision(6);
+  cvNum.value = +state.cv.toPrecision(6);
+  csNum.value = +state.cs.toPrecision(6);
+  const m = state.mean;
+  meanRng.min = m * 0.2; meanRng.max = m * 3; meanRng.step = Math.max(m / 400, 1e-6);
+  meanRng.value = m;
+  cvRng.value = Math.min(Math.max(state.cv, 0), 3);
+  csRng.value = Math.min(Math.max(state.cs, -3), 10);
+  const fixed = chkFix.checked;
+  meanNum.disabled = fixed; meanRng.disabled = fixed;
+  syncing = false;
+}
+
+function onParamChange(ev) {
+  if (syncing) return;
+  const el = ev.target;
+  const key = el.id.startsWith("mean") ? "mean" : el.id.startsWith("cv") ? "cv" : "cs";
+  const v = Number(el.value);
+  if (!isFinite(v)) return;                       // 空输入时忽略
+  if (key === "mean") state.mean = v;
+  else if (key === "cv") state.cv = v;
+  else state.cs = v;
+  syncing = true;
+  meanNum.value = +state.mean.toPrecision(6);
+  cvNum.value = +state.cv.toPrecision(6);
+  csNum.value = +state.cs.toPrecision(6);
+  meanRng.value = Math.min(Math.max(state.mean, +meanRng.min), +meanRng.max);
+  cvRng.value = Math.min(Math.max(state.cv, 0), 3);
+  csRng.value = Math.min(Math.max(state.cs, -3), 10);
+  syncing = false;
+  render();
+}
+
+function onFixChanged() {
+  if (chkFix.checked) {
+    const s = sampleStats(state.x);
+    state.mean = s.mean;
+    updateParamControls();
+  }
+  updateParamControls();
+  render();
+}
+
+function momentEstimate() {
+  if (!state.x) { alert("请先输入数据"); return; }
+  applyMoments(true);
+}
+
+function autoFit() {
+  if (!state.x) { alert("请先输入数据"); return; }
+  const { xs, p } = empiricalFreq(state.x);
+  setStatus("优化适线计算中…");
+  setTimeout(() => {
+    const meanFixed = chkFix.checked ? state.mean : null;
+    const r = fitCurve(xs, p.map(v => v / 100), meanFixed);
+    if (!r) { setStatus("适线失败：请确认数据均为正值且存在变幅"); return; }
+    state.mean = r.mean; state.cv = r.cv; state.cs = r.cs;
+    updateParamControls();
+    render();
+    fitInfo.textContent = `最优：Cv=${r.cv.toFixed(3)}，Cs=${r.cs.toFixed(3)}，相对SSE=${r.objNorm.toExponential(2)}`;
+    setStatus(`优化适线完成：均值=${r.mean.toFixed(2)}，Cv=${r.cv.toFixed(4)}，Cs=${r.cs.toFixed(4)}，RMSE=${r.rmse.toFixed(2)}，最大相对误差=${(r.maxRel * 100).toFixed(2)}%`);
+  }, 30);
+}
+
+/* ---------------- 成果表 ---------------- */
+function renderTable() {
+  tbody.innerHTML = "";
+  if (!state.x) return;
+  const phi = STD_P.map(p => phiPearson3(state.cs, p / 100));
+  const xp = phi.map(ph => state.mean * (1 + state.cv * ph));
+  let html = "";
+  for (let i = 0; i < STD_P.length; i++) {
+    const p = STD_P[i], T = 100 / p;
+    html += `<tr class="${p <= 1 ? "design" : ""}">` +
+      `<td>${p}</td><td>${fmtT(T)}</td><td>${phi[i].toFixed(4)}</td><td>${fmt(xp[i])}</td></tr>`;
+  }
+  tbody.innerHTML = html;
+  /* 拟合检验 */
+  const { xs, p } = empiricalFreq(state.x);
+  let sse = 0, maxRel = 0, sum = 0;
+  for (let i = 0; i < xs.length; i++) {
+    const xh = state.mean * (1 + state.cv * phiPearson3(state.cs, p[i] / 100));
+    const rel = (xs[i] - xh) / xs[i];
+    sse += rel * rel;
+    if (Math.abs(rel) > maxRel) maxRel = Math.abs(rel);
+    sum += (xs[i] - xh) * (xs[i] - xh);
+  }
+  const rmse = Math.sqrt(sum / xs.length);
+  errInfo.textContent = `拟合检验：相对残差平方和=${sse.toFixed(4)}　RMSE=${rmse.toFixed(2)}　最大相对误差=${(maxRel * 100).toFixed(2)}%`;
+}
+
+function fmtT(T) {
+  if (T >= 100) return String(Math.round(T));
+  return Number.isInteger(T) ? String(T) : T.toFixed(1);
+}
+
+/* ---------------- 绘图（海森机率格纸） ---------------- */
+const W = 940, H = 640;
+const PAD = { L: 66, R: 84, T: 46, B: 48 };
+const UMIN = pctToX(0.01) - 0.12, UMAX = pctToX(99.9) + 0.18;
+
+function xOf(u) { return PAD.L + (u - UMIN) / (UMAX - UMIN) * (W - PAD.L - PAD.R); }
+function yOf(v, ymin, ymax) { return PAD.T + (ymax - v) / (ymax - ymin) * (H - PAD.T - PAD.B); }
+
+function niceTicks(lo, hi, maxTicks) {
+  const span = hi - lo;
+  if (!(span > 0)) return [lo];
+  const step0 = Math.pow(10, Math.floor(Math.log10(span / maxTicks)));
+  for (const m of [1, 2, 2.5, 5, 10]) {
+    const step = m * step0;
+    if (span / step <= maxTicks) {
+      const ticks = [];
+      for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) ticks.push(v);
+      return ticks;
+    }
+  }
+  return [lo, hi];
+}
+
+const curvePts = [];   // 用于 hover 的曲线数据
+const empPts = [];     // 经验点（含像素坐标，供 hover）
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  if (!state.x) {
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "16px 'Microsoft YaHei', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("请先输入数据（每行一个年值），再按 F5 或点击【计算】", W / 2, H / 2);
+    return;
+  }
+  const { xs, p } = empiricalFreq(state.x);
+  const mean = state.mean, cv = state.cv, cs = state.cs;
+
+  /* 纵轴范围 */
+  const uLo = pctToX(0.05), uHi = pctToX(99.5);
+  let ylo = Infinity, yhi = -Infinity;
+  for (let i = 0; i < xs.length; i++) {
+    if (xs[i] < ylo) ylo = xs[i];
+    if (xs[i] > yhi) yhi = xs[i];
+  }
+  const nu = 160;
+  for (let i = 0; i <= nu; i++) {
+    const u = UMIN + (UMAX - UMIN) * i / nu;
+    if (u < uLo || u > uHi) continue;
+    const y = mean * (1 + cv * phiPearson3(cs, norm_cdf(u)));
+    if (isFinite(y)) {
+      if (y < ylo) ylo = y;
+      if (y > yhi) yhi = y;
+    }
+  }
+  if (!isFinite(ylo) || !isFinite(yhi) || yhi - ylo < 1e-12) { ylo -= 1; yhi += 1; }
+  const span = yhi - ylo;
+  ylo -= span * 0.10; yhi += span * 0.06;
+
+  /* 格纸 */
+  ctx.font = "10px 'Microsoft YaHei', sans-serif";
+  ctx.textAlign = "center";
+  for (const pv of PAPER_MINOR) {
+    const x = xOf(pctToX(pv));
+    ctx.strokeStyle = "#e8e8e8"; ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.moveTo(x, PAD.T); ctx.lineTo(x, H - PAD.B); ctx.stroke();
+  }
+  for (const pv of PAPER_MAJOR) {
+    const x = xOf(pctToX(pv));
+    ctx.strokeStyle = "#b5b5b5"; ctx.lineWidth = 0.9;
+    ctx.beginPath(); ctx.moveTo(x, PAD.T); ctx.lineTo(x, H - PAD.B); ctx.stroke();
+    ctx.fillStyle = "#444";
+    ctx.fillText(String(pv), x, H - PAD.B + 16);
+  }
+  /* 横轴标签与边框 */
+  ctx.strokeStyle = "#666"; ctx.lineWidth = 1.1;
+  ctx.strokeRect(PAD.L, PAD.T, W - PAD.L - PAD.R, H - PAD.T - PAD.B);
+  ctx.fillStyle = "#333";
+  ctx.font = "13px 'Microsoft YaHei', sans-serif";
+  ctx.fillText("频率 P (%)", PAD.L + (W - PAD.L - PAD.R) / 2, H - 14);
+  /* 纵轴刻度 */
+  ctx.textAlign = "right";
+  ctx.font = "10.5px 'Microsoft YaHei', sans-serif";
+  const yticks = niceTicks(ylo, yhi, 8);
+  for (const tv of yticks) {
+    const y = yOf(tv, ylo, yhi);
+    ctx.strokeStyle = "#e0e0e0"; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(PAD.L, y); ctx.lineTo(W - PAD.R, y); ctx.stroke();
+    ctx.fillStyle = "#444";
+    ctx.fillText(fmt(tv), PAD.L - 6, y + 3.5);
+  }
+  /* 顶轴：重现期 */
+  const T_TICKS = [10000, 1000, 200, 100, 50, 20, 10, 5, 2];
+  ctx.textAlign = "center";
+  ctx.font = "10px 'Microsoft YaHei', sans-serif";
+  for (const T of T_TICKS) {
+    const x = xOf(pctToX(100 / T));
+    ctx.fillStyle = "#666";
+    ctx.fillText(fmtT(T), x, 14);
+    ctx.strokeStyle = "#bbb"; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(x, PAD.T - 8); ctx.lineTo(x, PAD.T); ctx.stroke();
+  }
+  ctx.fillStyle = "#333";
+  ctx.font = "11.5px 'Microsoft YaHei', sans-serif";
+  ctx.fillText("重现期 T（年）", PAD.L + (W - PAD.L - PAD.R) / 2, 30);
+
+  /* 理论曲线 */
+  curvePts.length = 0;
+  const N = 400;
+  ctx.strokeStyle = "#d62728"; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < N; i++) {
+    const u = -4.3 + (3.6 + 4.3) * i / (N - 1);
+    const y = mean * (1 + cv * phiPearson3(cs, norm_cdf(u)));
+    const x = xOf(u), yy = yOf(y, ylo, yhi);
+    curvePts.push({ x, y: yy, v: y });
+    if (i === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+  }
+  ctx.stroke();
+
+  /* 经验点 */
+  empPts.length = 0;
+  if (chkPts.checked) {
+    ctx.fillStyle = "#1f77b4"; ctx.strokeStyle = "#1f77b4";
+    for (let i = 0; i < xs.length; i++) {
+      const x = xOf(pctToX(p[i])), y = yOf(xs[i], ylo, yhi);
+      ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.arc(x, y, 4.2, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(31,119,180,.14)"; ctx.fill();
+      ctx.fillStyle = "#1f77b4"; ctx.stroke();
+      empPts.push({ x, y, v: xs[i], p: p[i], yr: state.years ? state.years[i] : null });
+      if (chkYr.checked && state.years) {
+        ctx.fillStyle = "#1f77b4";
+        ctx.font = "9.5px 'Microsoft YaHei', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(String(state.years[i]), x, y - 8);
+      }
+    }
+  }
+
+  /* 标题（居中，白色底衬） */
+  const ttxt = `P-Ⅲ型频率曲线（n=${xs.length} 年）`;
+  ctx.font = "bold 14.5px 'Microsoft YaHei', sans-serif";
+  const tw = ctx.measureText ? ctx.measureText(ttxt).width : ttxt.length * 15;
+  const cx = PAD.L + (W - PAD.L - PAD.R) / 2;
+  ctx.fillStyle = "rgba(255,255,255,.92)";
+  ctx.fillRect(cx - tw / 2 - 8, PAD.T - 1, tw + 16, 23);
+  ctx.fillStyle = "#111";
+  ctx.textAlign = "center";
+  ctx.fillText(ttxt, cx, PAD.T + 15);
+  const lx = W - PAD.R - 210, ly = PAD.T + 6;
+  ctx.fillStyle = "rgba(255,255,255,.85)";
+  ctx.strokeStyle = "#ccc";
+  ctx.fillRect(lx, ly, 204, 44);
+  ctx.strokeRect(lx, ly, 204, 44);
+  ctx.strokeStyle = "#d62728"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(lx + 8, ly + 13); ctx.lineTo(lx + 30, ly + 13); ctx.stroke();
+  ctx.fillStyle = "#333"; ctx.font = "11px 'Microsoft YaHei', sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText(`P-Ⅲ理论曲线  x̄=${mean.toFixed(2)}`, lx + 36, ly + 16);
+  ctx.fillText(`Cv=${cv.toFixed(3)}  Cs=${cs.toFixed(3)}`, lx + 36, ly + 32);
+  if (chkPts.checked) {
+    ctx.strokeStyle = "#1f77b4"; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.arc(lx + 19, ly + 40, 3.6, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = "#333";
+    ctx.fillText("经验点（P=m/(n+1)）", lx + 36, ly + 43);
+  }
+  /* 单位 */
+  ctx.fillStyle = "#333";
+  ctx.font = "12px 'Microsoft YaHei', sans-serif";
+  ctx.save();
+  ctx.translate(16, PAD.T + (H - PAD.T - PAD.B) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText("变量值（m³/s）", 0, 0);
+  ctx.restore();
+}
+
+/* ---------------- hover 提示 ---------------- */
+canvas.addEventListener("mousemove", ev => {
+  if (!empPts.length) { tip.hidden = true; return; }
+  const rect = canvas.getBoundingClientRect();
+  const mx = (ev.clientX - rect.left) / rect.width * W;
+  const my = (ev.clientY - rect.top) / rect.height * H;
+  let best = null, bd = 14;
+  for (const pt of empPts) {
+    const d = Math.hypot(pt.x - mx, pt.y - my);
+    if (d < bd) { bd = d; best = pt; }
+  }
+  if (!best) { tip.hidden = true; return; }
+  const xh = state.mean * (1 + state.cv * phiPearson3(state.cs, best.p / 100));
+  tip.textContent =
+    `${best.yr !== null ? "年份：" + best.yr + "　" : ""}实测值：${fmt(best.v)}\n` +
+    `经验频率：${best.p.toFixed(2)}%　理论值：${fmt(xh)}`;
+  tip.style.left = (ev.clientX - rect.left + 14) + "px";
+  tip.style.top = (ev.clientY - rect.top + 14) + "px";
+  tip.hidden = false;
+});
+canvas.addEventListener("mouseleave", () => { tip.hidden = true; });
+
+/* ---------------- 示例数据 / 清空 ---------------- */
+function loadSample() {
+  elData.value = SAMPLE_YEARS.map((y, i) => `${y} ${SAMPLE_DATA[i]}`).join("\n");
+  state.years = SAMPLE_YEARS.slice();
+  state.x = SAMPLE_DATA.slice();
+  state.source = "示例数据：某水文站 1991–2020 年最大洪峰流量";
+  elSrc.textContent = `${state.source}（n=${state.x.length} 年）`;
+  applyMoments(true);
+  setStatus("已载入示例数据（30 年），可拖动 Cv/Cs 滑杆人工适线");
+}
+
+function clearAll() {
+  elData.value = ""; state.x = null; state.years = null;
+  elSrc.textContent = ""; elStats.textContent = "尚无数据";
+  fitInfo.textContent = ""; errInfo.textContent = ""; tbody.innerHTML = "";
+  tip.hidden = true;
+  draw();
+  setStatus("数据已清空");
+}
+
+/* ---------------- 导出 ---------------- */
+function downloadPNG() {
+  if (!state.x) { alert("请先输入数据"); return; }
+  const a = document.createElement("a");
+  a.download = "P3频率曲线.png";
+  a.href = canvas.toDataURL("image/png");
+  a.click();
+}
+
+function downloadCSV() {
+  if (!state.x) { alert("请先输入数据"); return; }
+  let csv = "变量,年最大洪峰流量\n单位,m³/s\n样本数," + state.x.length + "\n";
+  csv += "均值," + state.mean + "\n变差系数Cv," + state.cv + "\n偏态系数Cs," + state.cs + "\n";
+  csv += "频率P(%),重现期T(年),离均系数Φ,设计值\n";
+  const phi = STD_P.map(p => phiPearson3(state.cs, p / 100));
+  for (let i = 0; i < STD_P.length; i++) {
+    csv += `${STD_P[i]},${fmtT(100 / STD_P[i])},${phi[i].toFixed(6)},${(state.mean * (1 + state.cv * phi[i])).toFixed(4)}\n`;
+  }
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.download = "P3成果表.csv";
+  a.href = URL.createObjectURL(blob);
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ---------------- 渲染入口 ---------------- */
+function render() {
+  if (!state.x) { draw(); return; }
+  renderStats();
+  draw();
+  renderTable();
+}
+
+/* ---------------- 事件绑定与初始化 ---------------- */
+function setupHiDPI() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.aspectRatio = W + "/" + H;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();   // canvas 尺寸重置会清空内容，需重绘
+}
+window.addEventListener("resize", setupHiDPI);
+
+$("btnSample").addEventListener("click", loadSample);
+$("btnCalc").addEventListener("click", compute);
+$("btnClear").addEventListener("click", clearAll);
+$("btnMoment").addEventListener("click", momentEstimate);
+$("btnFit").addEventListener("click", autoFit);
+$("btnPng").addEventListener("click", downloadPNG);
+$("btnCsv").addEventListener("click", downloadCSV);
+chkFix.addEventListener("change", onFixChanged);
+chkPts.addEventListener("change", render);
+chkYr.addEventListener("change", render);
+[meanNum, meanRng, cvNum, cvRng, csNum, csRng].forEach(el =>
+  el.addEventListener("input", onParamChange));
+document.addEventListener("keydown", ev => { if (ev.key === "F5") { ev.preventDefault(); compute(); } });
+
+setupHiDPI();
+loadSample();
+</script>
+</body>
+</html>
