@@ -3,6 +3,9 @@
 水文学专业的皮尔逊Ⅲ型（Pearson Type III）频率曲线适线分析工具，
 包含 **网页版** 与 **Windows 桌面版** 两个版本，算法完全一致、结果可互相印证。
 
+> 🌐 **在线使用（GitHub Pages）**：https://yuweijia1992.github.io/p3-frequency-analysis/
+> 打开即用，无需安装、无需下载。
+
 - 输入多年水文资料（年最大洪峰流量、年降水量、年径流量等），自动按矩法
   估计均值、变差系数 Cv、偏态系数 Cs；
 - 在海森机率格纸上绘制经验点（P=m/(n+1)）与 P-Ⅲ 理论频率曲线；
@@ -12,7 +15,7 @@
 ## 目录结构
 
 ```
-├── P3频率曲线网页版.html    ← 网页版（单文件，双击即用，完全离线）
+├── index.html                ← 网页版（单文件，双击即用 / GitHub Pages 部署）
 ├── p3core.js / p3.html       ← 网页版核心算法 / 界面源码
 ├── build_single.py           ← 网页版单文件构建脚本
 ├── test_*.js / gen_vectors.py ← 网页版测试与验证

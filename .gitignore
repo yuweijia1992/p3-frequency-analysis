@@ -13,3 +13,6 @@ smoke_plot.png
 _net_test.py
 .DS_Store
 Thumbs.db
+
+# 本地交付名（线上部署用 index.html）
+P3频率曲线网页版.html
